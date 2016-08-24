@@ -1,0 +1,837 @@
+<apex:page controller="DispatchBoardController" showHeader="false" standardStylesheets="false" sidebar="false" applyHtmlTag="false" applyBodyTag="false" docType="html-5.0">    
+
+<html xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">    
+
+<head>
+  <title>Salesforce Lightning Design System Trailhead Module</title>
+   <apex:stylesheet value="{!URLFOR($Resource.SLDS202, 'assets/styles/salesforce-lightning-design-system.css')}" />
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css" />    
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script> 
+    <script src="/soap/ajax/29.0/connection.js" type="text/javascript"></script>
+    <script src="/soap/ajax/29.0/apex.js" type="text/javascript"></script>
+</head>    
+
+ <script type="text/javascript">
+    
+    regions = { "Region - 1": "Region - 1", "Region - 2": "Region - 2" };
+    
+    
+    
+     
+        $("document").ready(function() 
+        {
+            //alert("intializing from onready");
+            setDatesToAMPM();
+            initializeOnLoad();
+            
+            resetDispatchBoard();  
+            
+            
+            //alert(giveAMPM("2016-08-07 08:00"));
+        });
+    
+        function setDatesToAMPM()
+        {
+            $( ".scheduled-task" ).each(function(index,element){
+                //$( this ).find(".task-more-info").hide(); 
+                //var commitedAMPM = giveAMPM($(element).attr("task_committed_start"));
+                //alert(commitedAMPM);
+                $(element).attr("task_committed_start",giveAMPM($(element).attr("task_committed_start")));
+                $(element).attr("task_commmited_end",giveAMPM($(element).attr("task_commmited_end")));
+                $(element).attr("task_planned_start",giveAMPM($(element).attr("task_planned_start")));
+                $(element).attr("task_planned_end",giveAMPM($(element).attr("task_planned_end")));
+                });
+            
+            
+            
+            $( ".unscheduled-task" ).each(function(index,element){
+                //$( this ).find(".task-more-info").hide(); 
+                //var commitedAMPM = giveAMPM($(element).attr("task_committed_start"));
+                //alert(commitedAMPM);
+                $(element).attr("task_committed_start",giveAMPM($(element).attr("task_committed_start")));
+                $(element).attr("task_commmited_end",giveAMPM($(element).attr("task_commmited_end")));
+                $(element).attr("task_planned_start",giveAMPM($(element).attr("task_planned_start")));
+                $(element).attr("task_planned_end",giveAMPM($(element).attr("task_planned_end")));
+                });
+            
+            $( ".task-more-info" ).filter(".date-column").each(function(index,element){
+                //$( this ).find(".task-more-info").hide(); 
+                //var commitedAMPM = giveAMPM($(element).attr("task_committed_start"));
+                //alert($(element).html());
+                $(element).html(giveAMPM($(element).html()));
+                //$(element).attr("task_committed_start",giveAMPM($(element).attr("task_committed_start")));
+                
+                });
+            
+            
+        }
+    
+    
+        function giveAMPM(dateString)
+        {
+            //var d = new Date(dateString);
+            if(dateString == "")
+                return dateString;
+            var hh = dateString.substring(11,13);
+            var m = dateString.substring(14,16);
+            
+            var dd = "AM";
+            var h = hh;
+            if (h >= 12) {
+                h = hh-12;
+                dd = "PM";
+            }
+            if (h == 0) {
+                h = 12;
+            }
+            
+            /*
+            m = m<10?"0"+m:m;
+        
+            h = h<10?"0"+h:h; 
+            */
+            
+            var time= h+":"+m+" "+dd;
+            /*
+            var pattern = new RegExp("0?"+hh+":"+m+":"+s);
+        
+            var replacement = h+":"+m;
+            
+            replacement += " "+dd;    
+            */
+            return dateString.substring(0,10)+" "+time;
+        
+        }
+                            
+        function initializeOnLoad(){    
+            //alert("intializing");
+            setDatePicker();
+            $( "#dispatch-board-date" ).datepicker( "setDate", new Date());
+            
+            for (key in regions) {
+                  if (typeof (regions[key]) == 'string') {
+                      //$("#dispatch-board-service-region").append('<option value="' + regions[key] + '">' + regions[key] + '</option>');
+                      }
+                }
+
+                        
+            $( "#employee-search-form" ).submit(function( event ) {
+                              reloadEmployees();
+                              event.preventDefault();
+                            });
+            
+               $( "#task-search-form" ).submit(function( event ) {
+                              refineFieldTasks();
+                              event.preventDefault();
+                            });
+            
+            $("#task-info-modal").dialog({
+                minWidth:300,
+                autoOpen: false,
+                modal: true,
+                closeOnEscape: true,
+                draggable: false,
+                dialogClass:'dispatch-board-dialog'
+            });
+            
+           
+            sforce.connection.sessionId = "{!$Api.Session_ID}";
+            //alert("Hai");
+            //setDragDrop();
+            //setOnClickEvents();
+            
+            //setDipatchBoard_Scroll_At(7,0);
+            //setPositionForTasksOnBoard();
+         
+       }
+    
+        function resetDispatchBoard()
+        {
+            setDragDrop();
+            setOnClickEvents();
+            
+            setDipatchBoard_Scroll_At(7,0);
+            setPositionForTasksOnBoard();
+        }
+        
+        function setPositionForTasksOnBoard()
+        {
+           //alert("Hai");
+            $( ".scheduled-task" ).each(function(index){
+                                                $( this ).find(".task-more-info").hide(); 
+                                                var taskHour = parseInt($( this ).attr("task_hr"));
+                                                var taskMin =  parseInt($( this ).attr("task_min"));
+                                                var taskDuration = parseInt($( this ).attr("task_duration"));
+                    
+                                                var taskPosition = getDropPosition(taskHour,taskMin);
+                    
+                                                var taskWidth = getWidth(taskDuration);
+                                                //(80*taskDuration)/60;
+                                                //alert("Hello "+taskHour+"/"+taskMin+"/"+taskPosition+ "/"+taskWidth);
+                                                $( this ).css({position:'absolute', left:taskPosition, top:0});
+                                                $( this ).width(taskWidth);
+                                                //console.log( TaskPosition/width + ": " + taskPosition +"/"+ taskWidth);
+                                            });
+        }
+        
+        function getWidth(time_duration_min)
+            {
+                if(!($.isNumeric(time_duration_min) && time_duration_min >= 30))
+                 {time_duration_min = 30;}
+                
+                return (80*time_duration_min)/60;
+            }
+                
+       function getDropPosition(hrs,mins)
+            {
+                var pos = (((hrs * 60) + mins) * 1920)/(24*60);
+              
+                return parseInt(pos);
+                
+            }
+    
+       function setDipatchBoard_Scroll_At(hrs,mins)
+        {
+            var pos = ((hrs * 60 + mins) * 1920)/(24 * 60);
+            $("#dispatch-board").scrollLeft(parseInt(pos));
+        }
+    
+        function setDatePicker(){
+                $("#dispatch-board-date").datepicker({
+                                firstDay: 1,
+                
+                                showButtonPanel: true,
+                                currentText: "Today",
+                                closeText: "Close",
+                                
+                                constrainInput: true,
+                                
+                                defaultDate: 3,
+                                
+                                minDate: "-1M",
+                                maxDate: "+3M",
+                
+                                changeMonth: true,
+                                changeYear: true,
+                
+                                numberOfMonths: 1,
+                                
+                                beforeShowDay: onBeforeShowDay
+                            });
+           
+            
+                }
+    
+        function onBeforeShowDay(theDate) {
+                        // Day 0 is Sunday, 6 is Saturday
+                        if (theDate.getDay() == 0 || theDate.getDay() == 6) 
+                            return [true, "", "Weekends enabled"];
+                        
+                        return [true, ""];
+                    }
+    
+        function setOnClickEvents(){
+                $(".unscheduled-task").click(function(e) {
+                        $("#task-info-modal").empty();
+                        $("#task-info-modal").dialog({ title: $(this).attr("task_Num") });
+                        var content = "<table class='slds-table slds-table--bordered' >"
+                            content += "<tr><td> Type:</td><td>"+$(this).attr("task_type")+"</td></tr>";
+                            content += "<tr><td> Status:</td><td>"+$(this).attr("task_status")+"</td></tr>";
+                            content += "<tr><td> Duration:</td><td>"+$(this).attr("task_duration")+"</td></tr>";
+                            content += "<tr><td> Commited Start:</td><td>"+$(this).attr("task_committed_start")+"</td></tr>";
+                            content += "<tr><td> Commited End:</td><td>"+$(this).attr("task_commmited_end")+"</td></tr>";
+                       
+                        //content += "<p id='acct-name-modal-field'>Account Name: "+$(this).attr("task_Num")+"</p>";
+                        //content += "<p id='planned-start-modal-field'>Planned Start: "+$(this).attr("task_Num")+" </p>";
+                        //content += "<p id='planned-end-modal-field'>Planned End: "+$(this).attr("task_Num")+" </p>";
+                            content +="</table>";
+                                             
+                        $("#task-info-modal").append(content);
+                                     
+                        $("#task-info-modal").dialog("option", "position", { my: "left top", at: "left bottom", of: e });
+                        $("#task-info-modal").dialog("open").prev().css('background','#4f6a92').css('color','#ffffff');
+            });
+            
+            $(".scheduled-task").click(function(e) {
+                            $("#task-info-modal").empty();
+                            $("#task-info-modal").dialog({ title: $(this).attr("task_Num") });
+                          var content = "<table class='slds-table slds-table--bordered' >"
+                                content += "<tr><td> Type:</td><td>"+$(this).attr("task_type")+"</td></tr>";
+                                content += "<tr><td> Status:</td><td>"+$(this).attr("task_status")+"</td></tr>";
+                                content += "<tr><td> Duration:</td><td>"+$(this).attr("task_duration")+"</td></tr>";
+                                content += "<tr><td> Planned Start:</td><td>"+$(this).attr("task_planned_start")+"</td></tr>";
+                                content += "<tr><td> Commited Start:</td><td>"+$(this).attr("task_committed_start")+"</td></tr>";
+                                content += "<tr><td> Commited End:</td><td>"+$(this).attr("task_commmited_end")+"</td></tr>";
+                            //content += "<tr><td> Planned End:</td><td>"+$(this).attr("task_planned_end")+"</td></tr>";
+                           
+                            //content += "<p id='acct-name-modal-field'>Account Name: "+$(this).attr("task_Num")+"</p>";
+                            //content += "<p id='planned-start-modal-field'>Planned Start: "+$(this).attr("task_Num")+" </p>";
+                            //content += "<p id='planned-end-modal-field'>Planned End: "+$(this).attr("task_Num")+" </p>";
+                                content +="</table>";
+                                                 
+                            $("#task-info-modal").append(content);
+                                         
+                            $("#task-info-modal").dialog("option", "position", { my: "left top", at: "left bottom", of: e });
+                            $("#task-info-modal").dialog("open").prev().css('background','#4f6a92').css('color','#ffffff');
+            });
+                }
+    
+        function setDragDrop(){
+            //$("div[id^= emp-tm-slot]").css("background-color", "cornsilk");
+             $(".unscheduled-task").draggable({
+                                             revert: 'invalid',
+                                             cursorAt: { top: -1, left: -1 },
+                                             refreshPositions: true,
+                                            helper: function(event) {
+                                                 return $("<div class='scheduled-task' id='task-"+$(this).attr("task_id")+"' task_id='"+$(this).attr("task_id")+"' >"+$(this).attr("task_Num")+"</div>");
+       
+                                             }
+                                             
+                                            });
+            $(".scheduled-task").draggable({
+                                             revert: 'invalid',
+                                             cursorAt: { top: -1, left: -1 },
+                                            helper: function(event) {
+                                                 return $("<div class='scheduled-task' id='task-"+$(this).attr("task_id")+"' task_id='"+$(this).attr("task_id")+"' >"+$(this).attr("task_Num")+"</div>");
+       
+                                             }
+                                             
+                                            });
+
+
+            $("#unscheduledTasksPane").droppable({
+                                accept: ".scheduled-task",
+                                hoverClass: "left-pane-hover",
+                                tolerance: "pointer",
+                                
+                                drop: function(evt, ui) {
+                                    //alert("i am trying to drop on unscheduledPane");
+                                    var serviceTaskId = $(ui.draggable).attr("task_id");
+                                    var isNotOnBoard = $(ui.draggable).hasClass('unscheduled-task');
+                                    
+                                    if(unAssignTask(serviceTaskId) == "Success")
+                                        {
+                                            
+                                            //alert("will not revert");
+                                            var newDiv = $(ui.draggable).removeClass('ui-draggable-dragging scheduled-task')
+                                                           .addClass('unscheduled-task')
+                                                           .css({position:'relative', left:0, top:0})
+                                                           .css("width", "")
+                                                           .attr("task_planned_start","")
+                                                           .wrap("<li aria-selected='false' class='slds-item' role='option'></li>").parent();  
+                                            $(newDiv).find(".task-more-info").show(); 
+                                            //$(ui.draggable).remove();
+                                            $(this).find("ul").append(newDiv);
+                                            setDragDrop();
+                                            setOnClickEvents();
+                                            
+                                            
+                                         }
+                                    else
+                                        {   alert("reverting back");
+                                            ui.draggable.draggable('option','revert',true);
+                                         }
+                             }
+                });
+            
+            $("div[id^= emp-tm-slot]").droppable({
+                                accept: ".unscheduled-task, .scheduled-task",
+                                hoverClass: "dispatch-board-timeline-hover",
+                                tolerance: "pointer",
+                                
+                                drop: function(evt, ui) {
+                                    //alert("i am trying to drop on timeline");
+                                    var dropPositionX = evt.pageX - $(this).offset().left;
+                                    var evt_position_y = evt.pageY;
+                                    var tasks_pane_offset_top = $("#unscheduledTasksPane").offset().top;
+                                   
+                                    //alert("evt_position_y:" + evt_position_y + " tasks_pane_offset_top:"+tasks_pane_offset_top); 
+                                    if(evt_position_y >= tasks_pane_offset_top)
+                                        {
+                                                //alert("reverting back");
+                                                //evt.stopImmediatePropagation()
+                                                //$(ui.draggable).draggable('option','revert',true);
+                                                return false;
+                                            }
+                                    //alert("continuing to drop");
+                                    //alert(" div_offset: "+div_offset+" newPosX: "+newPosX+" dropPoint"+dropPoint);
+                                    //alert(" newPosX: "+newPosX);
+                                        var total_mins = (dropPositionX * 24 * 60)/(1920);
+                                        var hrs = Math.floor(total_mins/60);
+                                        var remain_mins = total_mins-(hrs*60);
+                                        var remain_mins_15_interval = remain_mins - (remain_mins%15);
+                                        //alert(" Hours: "+hrs+" Mins: "+remain_mins_15_interval);
+                                    
+                                        var serviceTaskId = $(ui.draggable).attr("task_id");
+                                        var empId = $(this).attr("empid");
+                                        var planned_year = $(this).attr("em-tm-slot-year");
+                                        var planned_month = $(this).attr("em-tm-slot-month");
+                                        var planned_day = $(this).attr("em-tm-slot-day");
+                                   //var planned_hour = $(this).attr("em-tm-slot-hour");
+                                        var planned_hour = hrs;
+                                        var task_duration = $(ui.draggable).attr("task_duration");
+                                    //alert("task_duration"+task_duration);
+                                        //var planned_min = $(this).attr("em-tm-slot-min");
+                                        var planned_min = remain_mins_15_interval;
+                                        var position_left = getDropPosition(planned_hour,planned_min);
+                                    //alert(" Hours: " +planned_hour+"---Mins:"+ remain_mins_15_interval + "-- Position:" + position_left);
+                                        //alert("i am trying to drop now");
+                                        var isNotOnBoard = $(ui.draggable).hasClass("unscheduled-task");
+                                        var assignStatus = updateTask(serviceTaskId,empId,planned_year,planned_month,planned_day,planned_hour,planned_min);
+                                        if( assignStatus == "Success")
+                                            {
+                                                
+                                                //alert("will not revert");
+                                                var width= getWidth(task_duration);
+                                                //alert("width"+width);
+                                                if(planned_month < 10){planned_month = "0"+ planned_month;}
+                                                if(planned_day < 10){planned_day = "0"+ planned_day;}
+                                                if(planned_hour < 10){planned_hour = "0"+ planned_hour;}
+                                                if(planned_min < 10){planned_min = "0"+ planned_min;}
+                                                var task_planned_start = planned_year + "-" + planned_month + "-" + planned_day + " " + planned_hour + ":" + planned_min ;
+                                                    task_planned_start = giveAMPM(task_planned_start);
+                                                var newDiv = $(ui.draggable).removeClass('ui-draggable-dragging unscheduled-task')
+                                                               .addClass('scheduled-task')
+                                                               .css({position:'absolute', left:position_left, top:0})
+                                                               .width(width)
+                                                               .attr("task_planned_start",task_planned_start);
+                                                if(isNotOnBoard)
+                                                    {
+                                                        $(newDiv).parent().hide();
+                                                    }
+                                                $(newDiv).find(".task-more-info").hide();  
+                                                //$(newDiv).unWrap();
+                                                //$(ui.draggable).parent().remove();
+                                                $(this).append(newDiv);
+                                                setDragDrop();
+                                                setOnClickEvents();
+       
+                                             }
+                                        else
+                                        {       alert("reverting back"+assignStatus);
+                                                ui.draggable.draggable('option','revert',true);
+                                             }
+                                    
+                                },
+                                activate: function (evt, ui) {
+                                    //alert("Hai");
+                                    //$(this).css("background-color", "cornsilk");
+                                },
+                                deactivate: function (evt, ui) {
+                                    //alert("Hai");
+                                    //$(this).css("background-color", "");
+                                }
+                
+                        });
+            
+       }
+            
+        function updateTask( serviceTaskId,  empId, planned_year,planned_month,planned_day,planned_hour,planned_min)
+        {
+            //sforce.debug.trace=true;
+            
+            //alert("calling update task");
+             var status = sforce.apex.execute("ZTassetTree.DispatchBoardUtils","assignActivity",
+                             {serviceTaskId:serviceTaskId,
+                              empId:empId,
+                              planned_year:planned_year,
+                              planned_month:planned_month,
+                              planned_day:planned_day,
+                              planned_hour:planned_hour,
+                              planned_min:planned_min});
+                              
+          
+            return status;
+            //sforce.debug.trace=true;
+
+            //alert("returned from update task");
+            //alert(status);
+        }
+    
+        function unAssignTask( serviceTaskId)       
+        {
+            //sforce.debug.trace=true;
+            
+            //alert("calling update task");
+            var status = sforce.apex.execute("ZTassetTree.DispatchBoardUtils","unAssignActivity",
+                             {serviceTaskId:serviceTaskId});
+            return status;
+         }
+
+        function reloadEmployees() {
+            //sforce.debug.trace=true;
+            //alert("reloading");
+            //var selectedDate = document.getElementById("dipatch-board-date").value;
+            //alert("Year"+selectedDate);
+                 region = document.getElementById("dispatch-board-service-region").value;
+                 dispatch_board_date = document.getElementById("dispatch-board-date").value;
+                 loadEmployeesByRegion_Date_Skills(region,dispatch_board_date);
+            $("#region_label").text(region);
+            $("#dispatch_date_label").text(dispatch_board_date);
+            //alert("reloading complete");
+              }
+    
+        function refineFieldTasks(){
+            //sforce.debug.trace=true;
+            //alert("reloading");
+            //var selectedDate = document.getElementById("dipatch-board-date").value;
+            //alert("Year"+selectedDate);
+                 search_task_num = document.getElementById("search_task_num").value;
+                 search_task_type = document.getElementById("search_task_type").value;
+                 search_task_account_name = document.getElementById("search_task_account_name").value;
+                 filterFieldTasks(search_task_num,search_task_type,search_task_account_name);
+            //alert("reloading complete");
+            
+            }
+          
+
+    </script>
+    
+    <style>
+        
+        .top-search-pane{
+        background-color:#00396b;
+        color:#ffffff;
+        }
+        
+        .ui-state-default{
+        
+        }
+        
+        .ui-state-highlight{
+        background-color:#a7b8d1;
+        }
+        
+        .ui-state-active{
+        background-color:#00396b;
+        }
+        
+        .dispatch-board-date{
+            color:#000000;
+        }
+        
+        .dispatch-board-service-region{
+            color:#000000;
+        }
+        
+        .dispatch-board-dialog{
+            background-color:#ffffff;
+            font-size: 0.825rem;
+            line-height: 1.0;
+            font-family:sans-serif;
+        }
+        
+        .scheduled-task{
+          background-color:#04844b;
+          padding: 0.25rem 0.0rem;
+          border-radius: 15rem;
+          font-size: 0.625rem;
+          line-height: 1.25;
+          text-transform: uppercase;
+          letter-spacing: 0.0625em;
+          color: #ffffff;
+          vertical-align: middle;
+          white-space: nowrap;
+          overflow-x: hidden;
+        }
+   
+        .left-pane-regular{
+            background-color:#eef1f6;
+            
+        }
+        
+       .left-pane-hover{
+            background-color: #a7b8d1;
+        }
+        
+        .dispatch-board-pane{
+            background-color: #cfd7e6;
+        }
+        
+        .dispatch-board-employee-names{
+            background-color: #00396b;
+            color:#ffffff;  
+        }
+        .dispatch-board-timeline-header{
+            background-color: #00396b;
+            color:#ffffff;  
+        }
+        
+       .dispatch-board-timeline-regular{
+            background-color: #cfd7e6;
+        }
+       .dispatch-board-timeline-hover{
+            background-color: #4f6a92;
+        }
+        .ui-button:focus { 
+        outline:none !important 
+        }
+        
+    </style>
+<body>    
+
+  <!-- REQUIRED SLDS WRAPPER -->
+  <div class="slds">    
+
+    <div class="slds-media__body slds-m-bottom--small" role="banner">
+    <!-- MASTHEAD -->
+    
+        <table style="vertical-align:top;width:1200px;" class="top-search-pane" >
+            <tr>
+                <td style="width:300px;vertical-align:top;"> 
+                    <h2>
+                        
+                    </h2>
+                </td>
+                
+                <td style="vertical-align:top;text-align:center"> 
+                    <h1 class="slds-text-heading--medium slds-m-top--small" >
+                        Dispatch Board
+                    </h1>
+                    <label class="slds-text-heading--label" id="region_label">{!region}</label><br/>
+                      <label class="slds-text-heading--label" id="dispatch_date_label">{!dispatch_board_date}</label>
+                </td>
+                <form id="employee-search-form" >
+                <td style="width:300px;vertical-align:top;">      
+                    <div>
+                        <table><tbody><tr>
+                            <td style="padding-right:4px" width="150">
+                        <label class="slds-form-element__label">Service Region:</label>      
+                        <select id="dispatch-board-service-region" style="height:25px;" class="slds-select" type="select">
+                            <apex:repeat value="{!regions}" var="region">
+                                <option value="{!region}">{!region}</option>
+                            </apex:repeat>
+                                </select>
+                         </td>
+                        <td style="padding-right:4px">
+                            <label class="slds-form-element__label">Choose Date:</label>
+                        <input type="text" id="dispatch-board-date" style="line-height: 1.4rem;min-height:1.4rem;" class="slds-input "/>
+                        </td></tr>
+                        <tr>
+                          <td style="text-align:right;padding-right:4px;padding-bottom:2px;padding-top:2px;" colspan="2">         
+                        <!-- <div id="datepick1"></div> -->
+                        <input id="dispatch-board-form-submit-button" type="submit" value="Refresh" class="slds-button--brand" />
+                        </td></tr>
+                            </tbody></table>
+                            
+                            </div>
+                </td>
+                </form>
+            
+            </tr>
+        </table>
+        <apex:form >
+          <apex:actionFunction name="loadEmployeesByRegion_Date_Skills" action="{! getEmployeesAndTasksByRegion}" rerender="employees-dispatchboard-outputPanel" oncomplete="resetDispatchBoard();">
+                  <apex:param name="region" value="" />
+                  <apex:param name="dispatch_board_date" value="" />          
+          </apex:actionFunction>
+        </apex:form>
+    <!-- / MASTHEAD -->    
+    </div>
+    <!-- PRIMARY CONTENT WRAPPER -->
+   
+
+            <!-- Middle Pane -->
+        <div class="slds-grid">
+
+            
+                    <!-- Employees+BOARD middle PANE -slds-size--9-of-12 -->
+            <apex:outputPanel id="employees-dispatchboard-outputPanel">
+              <div id="employees-dispatchboard" class="dispatch-board-pane slds-col--padded  slds-col--rule-right" style="overflow-y:scroll;height:350px;vertical-align:top;">
+                  
+                      <table style="vertical-align:top;">
+                          <tr>
+                              <td style="width:200px;overflow-x:scroll;vertical-align:top;" >
+                                  <!-- employee names PANE-->
+                                  <div class="dispatch-board-employee-names slds-grid slds-wrap" style="width:200px;">
+                                      <!-- dispatchboard header -employee name-->
+                                      <div class="slds-grid slds-wrap slds-col--padded slds-p-bottom--medium  slds-col--rule-bottom slds-col--rule-right"  style="width:200px;  height:40px;">Technician</div>
+                                      <!-- end of dispatchboard header -employee name-->
+                                      <!-- loop through all employees FOR employee names -->
+                                      <apex:repeat value="{!employees}" var="employee" >
+                                          
+                                          <div class="slds-grid slds-wrap slds-col--padded slds-p-bottom--medium  slds-col--rule-bottom slds-col--rule-right" empid="{!employee.Id}" id="{!'emp-name-'+employee.Id}" style="width:200px;  height:30px;" >{!employee.Name}</div>
+                                          
+                                      </apex:repeat>
+                                      <!-- End of loop through all employees FOR employee names -->
+                                  </div>
+                                  <!-- end employee names PANE-->
+                              </td>
+                              <td style="">
+                                  <!-- DispatchBoard PANE-->
+                                  <div id="dispatch-board" class="dispatch-board slds-col--rule-right" style="overflow:auto;width:960px;">
+                                      <!-- DispatchBoard PANE--HOURS--HEADER-->
+                                      <div  class="slds-grid slds-nowrap"  style="width:1920px; height:40px; ">
+                                          <table class="dispatch-board-timeline-header slds-no-row-hover slds-table slds-table--bordered slds-table--striped" width="100%" border="1"  >
+                                              <tr>
+                                                  <td  width="80">0:00 AM</td>  <td  width="80">1:00 AM</td>  <td  width="80">2:00 AM</td>  <td  width="80">3:00 AM</td>  <td  width="80">4:00 AM</td>  <td  width="80">5:00 AM</td> 
+                                                  <td  width="80">6:00 AM</td>  <td  width="80">7:00 AM</td>  <td  width="80">8:00 AM</td>  <td  width="80">9:00 AM</td>  <td  width="80">10:00 AM</td>  <td  width="80">11:00 AM</td> 
+                                                  <td  width="80">12:00 PM</td> <td  width="80">1:00 PM</td>  <td  width="80">2:00 PM</td>  <td  width="80">3:00 PM</td>  <td  width="80">4:00 PM</td>  <td  width="80">5:00 PM</td>
+                                                  <td  width="80">6:00 PM</td>  <td  width="80">7:00 PM</td>  <td  width="80">8:00 PM</td>  <td  width="80">9:00 PM</td>  <td  width="80">10:00 PM</td>  <td  width="80">11:00 PM</td> 
+                                              </tr>
+                                          </table>    
+                                      </div> 
+                                      <!-- End of DispatchBoard PANE--HOURS--HEADER-->
+                                      
+                                      <!-- loop through all employees FOR employee Board -->
+                                      <apex:repeat value="{!employees}" var="employee" >
+                                          
+                                          <div  empid="{!employee.Id}" em-tm-slot-year="{! TEXT(YEAR(Date_dispatch_board_date))}" em-tm-slot-month="{! TEXT(MONTH(Date_dispatch_board_date))}" em-tm-slot-day="{! TEXT(DAY(Date_dispatch_board_date))}"  id="{!'emp-tm-slot-'+employee.Id}" class="dispatch-board-timeline-regular slds-col slds-p-bottom--medium slds-col--rule-bottom slds-col--rule-right slds-col--rule-left slds-large-size--1-of-2"  style="position:relative;width:1920px; height:30px;">
+                                              
+                                              <!-- Add Employee Tasks scheduled for this employee and for this day -->
+                                              
+                                              <apex:repeat value="{!employee.Service_Tasks__r}" var="task" >
+                                                  <div id="{! 'task-'+task.Id}" task_id="{!task.Id}" task_Num="{!task.Name}" task_category="{!task.Category__c}"  task_hr="{! VALUE( MID( TEXT( task.Planned_Start__c + (TZoffset/(24*60*60*1000))), 12, 2 ) )}" task_min = "{! VALUE( MID( TEXT( task.Planned_Start__c + (TZoffset/(24*60*60*1000)) ), 15, 2 ) )}" task_type="{!task.Task_Type__c}" 
+                                                       task_committed_start="{! MID( TEXT( task.Commited_Start__c + (TZoffset/(24*60*60*1000)) ), 1, 16 )}"
+                                                       task_commmited_end="{! MID( TEXT( task.Commited_End__c + (TZoffset/(24*60*60*1000)) ), 1, 16 )}"
+                                                       task_planned_start="{! MID( TEXT( task.Planned_Start__c + (TZoffset/(24*60*60*1000)) ), 1, 16 )}"
+                                                       task_planned_end="{! MID( TEXT( task.Planned_End__c + (TZoffset/(24*60*60*1000)) ), 1, 16 )}" 
+                                                       task_status="{!task.Status__c}" task_duration="{!task.Duration__c}" class="scheduled-task" style="position:absolute;left:800px;top:0px;width:80px;"  >
+                                                      <table><tbody><tr> 
+                                            <td  width="100" >&nbsp;&nbsp;{!task.Name}</td>
+                                            <td class="task-more-info" width="100" >{!task.Task_Type__c}</td>
+                                            <td class="task-more-info"  width="200" >{!task.Account__r.Name}</td>
+                                            <td class="task-more-info" width="100" >{!task.Status__c}</td>
+                                            <td class="task-more-info"  width="50" >{!task.Duration__c}</td>
+                                            <td class="task-more-info date-column"  width="150" >{! MID( TEXT( task.Commited_Start__c + (TZoffset/(24*60*60*1000)) ), 1, 16 )}</td>                  
+                                                          </tr></tbody></table>
+                                                  </div>     
+                                              </apex:repeat>
+                                              <!-- Add Employee Tasks scheduled for this employee and for this day -->
+                                              
+                                          </div>
+                                          
+                                      </apex:repeat>
+                                      <!-- End of loop through all employees FOR employee Board -->
+                                      
+                                  </div>
+                                  <!-- End of DispatchBoard PANE-->
+                              </td>
+                          </tr>
+                      </table>
+                  
+                                 
+                          
+              </div>
+            </apex:outputPanel>
+                    <!-- end Employees+BOARD middle PANE -->
+         </div>   
+      
+                      <!-- Tasks bottom PANE -slds-size--3-of-12 -->
+              <div class="slds-col--padded  slds-col--rule-right left-pane-regular slds-m-top--small" id="unscheduledTasksPane" style="vertical-align:top;width:1200px;height:300px;overflow-y:scroll;" >
+                <div id="tasks-header"  style="padding-bottom:4px;">
+
+                    <form id="task-search-form" >
+                        <table width="550"><tbody><tr>
+
+                        <td>
+                            <h1 class="slds-text-heading--small slds-m-bottom--small">
+                             Field Tasks
+                            </h1>
+                  
+                        </td>
+
+                        <td style="padding-right:4px" width="150">
+                            <label class="slds-form-element__label">Task Num:</label>
+                        <input type="text" id="search_task_num" style="line-height: 1.4rem;min-height:1.4rem;" class="slds-input "/>
+                        </td>
+
+                        <td style="padding-right:4px" width="150">
+                            <label class="slds-form-element__label">Task Type:</label>
+                        <input type="text" id="search_task_type" style="line-height: 1.4rem;min-height:1.4rem;" class="slds-input "/>
+                        </td>
+
+                        <td style="padding-right:4px" width="150">
+                            <label class="slds-form-element__label">Account Name:</label>
+                        <input type="text" id="search_task_account_name" style="line-height: 1.4rem;min-height:1.4rem;" class="slds-input "/>
+                        </td>
+
+                          <td style="text-align:right;padding-right:4px;vertical-align:bottom;" width="100">         
+                        <!-- <div id="datepick1"></div> -->
+                        <input id="task-form-submit-button" type="submit" value="Find" class="slds-button--brand" />
+                        </td>
+
+
+
+                            </tr></tbody></table>
+                    </form>
+ 
+                  </div>
+                  
+                  <div id="task-info-modal" class="slds-modal__content slds-p-around--medium"  title="">
+                             <!--
+                             <p id="task-type-modal-field">Type: </p>
+                             <p id="acct-name-modal-field">Account Name: </p>
+                             <p id="status-modal-field">Status: </p>
+                             <p id="duration-modal-field">Duration: </p>
+                             <p id="commited-start-modal-field">Commited Start: </p>
+                             <p id="commited-end-modal-field">Commited End: </p>
+                             <p id="planned-start-modal-field">Commited Start: </p>
+                             <p id="planned-end-modal-field">Commited End: </p>
+                            -->
+                  </div>
+                  
+                   <apex:form >
+                      <apex:actionFunction name="filterFieldTasks" action="{! getUnScheduledTasks}" rerender="tasksPanel" oncomplete="setDragDrop();setOnClickEvents();">
+                              <apex:param name="task_num" value="" />
+                              <apex:param name="task_type" value="" />  
+                              <apex:param name="task_account_name" value="" /> 
+                      </apex:actionFunction>
+                   </apex:form>
+                              
+                  <apex:outputPanel id="tasksPanel">
+                  <div id="tasks" class="slds-m-bottom--small">   
+                         
+                      <ul class="slds-has-dividers--around-space">
+                          
+                          <apex:repeat value="{!unscheduledTasks}" var="task">
+                                <li   class="slds-item" aria-selected="false" role="option">
+                                    <div id="{! 'task-'+task.Id}" task_id="{!task.Id}" task_Num="{!task.Name}" task_type="{!task.Task_Type__c}" task_category="{!task.Category__c}" task_status="{!task.Status__c}" task_duration="{!task.Duration__c}" class="slds-tile slds-tile--board unscheduled-task"  
+                                         
+                                         task_committed_start="{! MID( TEXT( task.Commited_Start__c + (TZoffset/(24*60*60*1000)) ), 1, 16 )}"
+                                         task_commmited_end="{! MID( TEXT( task.Commited_End__c + (TZoffset/(24*60*60*1000)) ), 1, 16 )}"                                        
+                                         task_planned_start="{! MID( TEXT( task.Planned_Start__c + (TZoffset/(24*60*60*1000)) ), 1, 16 )}"
+                                         task_planned_end="{! MID( TEXT( task.Planned_End__c + (TZoffset/(24*60*60*1000)) ), 1, 16 )}"                                       
+                                         >
+                                    <table ><tbody>
+                                        <tr>
+                                            <td  width="100" >&nbsp;&nbsp;{!task.Name}</td>
+                                            <td class="task-more-info" width="100" >{!task.Task_Type__c}</td>
+                                            <td class="task-more-info"  width="200" >{!task.Account__r.Name}</td>
+                                            <td class="task-more-info" width="100" >{!task.Status__c}</td>
+                                            <td class="task-more-info"  width="50" >{!task.Duration__c}</td>
+                                            <td class="task-more-info date-column"  width="150" >{! MID( TEXT( task.Commited_Start__c + (TZoffset/(24*60*60*1000)) ), 1, 16 )}</td>
+                                        </tr>
+                                    </tbody></table>
+                                        <!--
+                                        <div class="slds-grid">
+                                          <div class="task-name">{!task.Name}</div>
+                                        
+                                          <div class="slds-col--bump-left slds-m-right--small task-acct-name">{!task.Account__r.Name}</div>
+                                        
+                                        </div>
+                                        -->
+                                          
+                                    </div>  
+                              </li>     
+                          </apex:repeat>
+
+                      </ul>
+                      
+                      
+                  </div>
+                  </apex:outputPanel> 
+              </div>
+                    <!-- end Tasks bottom PANE -->
+            
+          
+            
+    <!-- / PRIMARY CONTENT WRAPPER -->    
+
+  </div>
+  <!-- / REQUIRED SLDS WRAPPER -->    
+
+</body>
+</html>
+</apex:page>
