@@ -1,6 +1,6 @@
 # salesforce-code
 
-<b>InvoiceEngine.cls:</b> This Apex class, will auto generate Invoice for a service ticket and is based on complex set of business rules.  The rules will take in to account Enittlements the user has, Product Price Lists, Employee RateLists and will apply on Time, Expense and Part Movements performed on work order and any customer orders associated with the Service Ticket. The code is invoked from a button on Service Ticket.
+<b>InvoiceEngine.cls:</b> This Apex class, will auto generate Invoice for a service ticket and is based on complex set of business rules.  The rules will take in to account Enitlements the user has, Product Price Lists, Employee RateLists and will apply on Time, Expense and Part Movements performed on work order and any customer orders associated with the Service Ticket. The code is invoked from a button on Service Ticket.
 
 <b>EntitlementUtilities.cls:</b> This Apex class will allow the administrator to generate new entitlements for the customer, with complicated set of rules, by using pre configured Entitlement Templates as its base.
 
